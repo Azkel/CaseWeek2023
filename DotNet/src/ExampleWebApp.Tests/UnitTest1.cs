@@ -6,7 +6,8 @@ namespace ExampleWebApp.Tests
         [TestMethod]
         public void TestMethod1()
         {
-            //Assert.Fail();
+            // CaseWeek 2023 exercise: uncomment Assert.Fail() to break CI, then fix.
+            // Assert.Fail();
         }
     }
 }

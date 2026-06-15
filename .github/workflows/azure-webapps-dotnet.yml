@@ -1,0 +1,75 @@
+# Build and deploy ASP.NET Core app to Azure App Service (PaaS).
+#
+# Setup:
+# 1. Create a Web App in Azure (.NET 6 runtime).
+# 2. Download publish profile → GitHub secret AZURE_WEBAPP_DOTNET_PUBLISH_PROFILE.
+# 3. Set AZURE_WEBAPP_NAME below to your web app name.
+#
+# https://learn.microsoft.com/azure/app-service/deploy-github-actions
+
+name: Build and deploy .NET app to Azure Web App
+
+env:
+  AZURE_WEBAPP_NAME: your-dotnet-webapp-name  # change for your App Service
+  DOTNET_VERSION: "6.0.x"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./DotNet/src/ExampleWebApp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ExampleWebApp.sln
+
+      - name: Build
+        run: dotnet build ExampleWebApp.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ../ExampleWebApp.Tests/ExampleWebApp.Tests.csproj --configuration Release --no-build
+
+      - name: Publish
+        run: dotnet publish ExampleWebApp/ExampleWebApp.csproj --configuration Release --output ./publish
+
+      - name: Upload artifact for deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-app
+          path: ./DotNet/src/ExampleWebApp/publish
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: production
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+          path: ./deploy
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_DOTNET_PUBLISH_PROFILE }}
+          package: ./deploy
